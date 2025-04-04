@@ -1,5 +1,8 @@
+Absolutely! Here's an updated guide on how to set up and use the **Schedule 1 Modify Tool** using **Git** for version control. This is a more beginner-friendly guide that walks you through the process of cloning the repository and setting up everything using Git.
 
-# **Schedule 1 Modify Tool Setup Guide**
+---
+
+# **Schedule 1 Modify Tool Setup Guide (Using Git)**
 
 This guide will walk you through the process of setting up and using the **Schedule 1 Modify Tool** to modify your **Schedule 1** game save files using **Git** for version control.
 

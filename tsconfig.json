@@ -2,7 +2,7 @@
     "compilerOptions": {
       "declaration": true,
       "emitDeclarationOnly": true,
-      "outDir": "./dist",
+      "outDir": "./dist", // Ensure type declarations are output to the correct directory
       "module": "commonjs",
       "target": "es2020",
       "esModuleInterop": true,
