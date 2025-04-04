@@ -1,0 +1,22 @@
+{
+  "name": "schedule1",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "Apache-2.0",
+  "description": "",
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@types/typescript": "^0.4.29",
+    "chalk": "^5.4.1",
+    "types": "^0.1.1",
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "fs": "^0.0.1-security"
+  }
+}
