@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+      "declaration": true,
+      "emitDeclarationOnly": true,
+      "outDir": "./dist",
+      "module": "commonjs",
+      "target": "es2020",
+      "esModuleInterop": true,
+      "strict": true
+    },
+    "include": ["src/**/*.ts"]
+  }
