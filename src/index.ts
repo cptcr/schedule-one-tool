@@ -186,9 +186,50 @@ async function modifyInternalLawIntensity(gamePath: string) {
     });
 }
 
+async function handleMenuSelection(gamePath: string) {
+    let exitMenu = false;
+    while (!exitMenu) {
+        console.clear();
+        console.log(chalk.blue("Select an option:"));
+        console.log("1. Modify Business");
+        console.log("2. Modify Balance");
+        console.log("3. Modify Weekly Deposit Sum");
+        console.log("4. Modify Internal Law Intensity");
+        console.log("5. Exit");
+
+        await new Promise<void>((resolve) => {
+            rl.question("Enter your option number: ", async (option) => {
+                switch (option.trim()) {
+                    case "1":
+                        await modifyBusiness(gamePath);
+                        break;
+                    case "2":
+                        await modifyBalance(gamePath);
+                        break;
+                    case "3":
+                        await modifyWeeklyDepositSum(gamePath);
+                        break;
+                    case "4":
+                        await modifyInternalLawIntensity(gamePath);
+                        break;
+                    case "5":
+                        console.log(chalk.green("Exiting..."));
+                        exitMenu = true;
+                        break;
+                    default:
+                        console.log(chalk.red("Invalid selection. Please try again."));
+                        break;
+                }
+                resolve();
+            });
+        });
+    }
+}
+
 async function main() {
     await printStart();
 
+    await console.log(chalk.magenta("To get the path do this: \n1. Press the Windows key and R \n2. Enter %AppData%Low (Default Steam Installer Path, if you have installed it in another folder/drive, please use the correct path) \n3. Open the TVGS Folder \n4. Open the Schedule 1 Folder \n5. Right-Click on the bar on the top on Schedule One and select \"Copy Adress\" \n6. Paste it below using CTRL + V \n7. Press ENTER"))
     rl.question("Enter your Schedule 1 path (e.g., C:/Users/yourname/AppData/LocalLow/TVGS/Schedule I): ", async (inputPath) => {
         const sanitizedPath = inputPath.trim().replace(/\\/g, "/");
 
@@ -205,45 +246,8 @@ async function main() {
             const selectedGame = await selectGame(games);
             const gamePath = path.join(accountPath, selectedGame);
 
-            let exitMenu = false;
-            while (!exitMenu) {
-                console.clear();
-                console.log(chalk.blue("Select an option:"));
-                console.log("1. Modify Business");
-                console.log("2. Modify Balance");
-                console.log("3. Modify Weekly Deposit Sum");
-                console.log("4. Modify Internal Law Intensity");
-                console.log("5. Exit");
-
-                rl.question("Enter your option number: ", async (option) => {
-                    switch (option.trim()) {
-                        case "1":
-                            await modifyBusiness(gamePath);
-                            break;
-                        case "2":
-                            await modifyBalance(gamePath);
-                            break;
-                        case "3":
-                            await modifyWeeklyDepositSum(gamePath);
-                            break;
-                        case "4":
-                            await modifyInternalLawIntensity(gamePath);
-                            break;
-                        case "5":
-                            console.log(chalk.green("Exiting..."));
-                            exitMenu = true;
-                            break;
-                        default:
-                            console.log(chalk.red("Invalid selection. Please try again."));
-                            break;
-                    }
-                    if (!exitMenu) {
-                        await main();
-                    } else {
-                        rl.close();
-                    }
-                });
-            }
+            await handleMenuSelection(gamePath);
+            rl.close();
         } catch (err) {
             console.error(chalk.red("Error:", err));
             rl.close();
