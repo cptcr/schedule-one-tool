@@ -1,258 +1,392 @@
-import chalk from "chalk";
 import * as fs from "fs";
-import readline from "node:readline";
-import { stdin as input, stdout as output } from "node:process";
-import path from "node:path";
-import { promises as fsPromises } from "fs";
+import * as path from "path";
+import * as readline from "readline";
+import chalk from "chalk";
+import * as os from "os";
+import inquirer from "inquirer"; // Import inquirer for interactive prompts
 
-const rl = readline.createInterface({ input, output });
+const basePath = path.join(
+  os.homedir(),
+  "AppData",
+  "LocalLow",
+  "TVGS",
+  "Schedule I",
+);
 
-let pathFOUND: string;
-let selectedAccount: string;
-let selectedGame: string;
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
 
-async function printStart() {
-    console.clear();
-    console.log(chalk.green("SCHEDULE 1 - TOOL"));
-    console.log(chalk.green("Made with love by cptcr"));
-}
+const displayHeader = (title: string) => {
+  console.clear();
+  console.log(chalk.blue.bold("=============================="));
+  console.log(chalk.blue.bold(` ${title} `));
+  console.log(chalk.blue.bold("=============================="));
+};
 
-async function listAccounts(sanitizedPath: string): Promise<string[]> {
+const listAccounts = () => {
+  displayHeader("Select an Account");
+  const savesPath = path.join(basePath, "Saves");
+  if (!fs.existsSync(savesPath)) {
+    console.error(
+      chalk.red(`Error: The directory ${savesPath} does not exist.`),
+    );
+    return;
+  }
+  fs.readdir(savesPath, (err, files) => {
+    if (err) {
+      console.error(chalk.red("Error reading accounts:"), err);
+      return;
+    }
+    if (files.length === 0) {
+      console.log(chalk.yellow("No accounts found."));
+      askToModifyMore();
+      return;
+    }
+    displayGrid(files);
+    rl.question("Enter the number of the account: ", (answer) => {
+      const accountIndex = parseInt(answer) - 1;
+      if (
+        isNaN(accountIndex) ||
+        accountIndex < 0 ||
+        accountIndex >= files.length
+      ) {
+        console.log(chalk.red("Invalid selection."));
+        listAccounts();
+        return;
+      }
+      const accountPath = path.join(savesPath, files[accountIndex]);
+      listGames(accountPath);
+    });
+  });
+};
+
+const listGames = (accountPath: string) => {
+  displayHeader("Select a Game");
+  fs.readdir(accountPath, (err, files) => {
+    if (err) {
+      console.error(chalk.red("Error reading games:"), err);
+      return;
+    }
+    if (files.length === 0) {
+      console.log(chalk.yellow("No games found."));
+      askToModifyMore();
+      return;
+    }
+    displayGrid(files);
+    rl.question("Enter the number of the game: ", (answer) => {
+      const gameIndex = parseInt(answer) - 1;
+      if (isNaN(gameIndex) || gameIndex < 0 || gameIndex >= files.length) {
+        console.log(chalk.red("Invalid selection."));
+        listGames(accountPath);
+        return;
+      }
+      const gamePath = path.join(accountPath, files[gameIndex]);
+      listGameOptions(gamePath);
+    });
+  });
+};
+
+const listGameOptions = (gamePath: string) => {
+  displayHeader("Select an Option");
+  console.log(chalk.green("1. Change Law Intensity"));
+  console.log(chalk.green("2. Change Money"));
+  console.log(chalk.green("3. Modify Businesses"));
+  console.log(chalk.green("4. Modify NPCs"));
+  rl.question("Enter the number of the option: ", (answer) => {
+    switch (parseInt(answer)) {
+      case 1:
+        changeLawIntensity(gamePath);
+        break;
+      case 2:
+        changeMoney(gamePath);
+        break;
+      case 3:
+        modifyBusinesses(gamePath);
+        break;
+      case 4:
+        modifyNPCs(gamePath);
+        break;
+      default:
+        console.log(chalk.red("Invalid option"));
+        listGameOptions(gamePath);
+        break;
+    }
+  });
+};
+
+const changeLawIntensity = (gamePath: string) => {
+  displayHeader("Change Law Intensity");
+  const lawFilePath = path.join(gamePath, "Law.json");
+  fs.readFile(lawFilePath, "utf8", (err, data) => {
+    if (err) {
+      console.error(chalk.red("Error reading Law.json:"), err);
+      return;
+    }
     try {
-        const savesPath = path.join(sanitizedPath, "Saves");
-        const files = await fsPromises.readdir(savesPath, { withFileTypes: true });
-        const directories = files.filter(file => file.isDirectory()).map(file => file.name);
-
-        console.log(chalk.blue("Found these accounts on Schedule 1:"));
-        directories.forEach((account, index) => {
-            console.log(`${index + 1}. ${account}`);
-        });
-
-        return directories;
-    } catch (err) {
-        console.error(chalk.red("Error reading accounts:"), err);
-        return [];
+      const lawData = JSON.parse(data);
+      lawData.InternalLawIntensity = 0;
+      fs.writeFile(lawFilePath, JSON.stringify(lawData, null, 2), (err) => {
+        if (err) {
+          console.error(chalk.red("Error writing Law.json:"), err);
+          return;
+        }
+        console.log(chalk.green("Law intensity changed successfully!"));
+        askToModifyMore();
+      });
+    } catch (e) {
+      console.error(chalk.red("Error parsing Law.json:"), e);
     }
-}
+  });
+};
 
-async function selectAccount(accounts: string[]): Promise<string> {
-    return new Promise<string>((resolve) => {
-        rl.question("Enter the number of the account to select: ", (input) => {
-            const selectedAccountIndex = parseInt(input.trim()) - 1;
-            if (selectedAccountIndex >= 0 && selectedAccountIndex < accounts.length) {
-                selectedAccount = accounts[selectedAccountIndex];
-                resolve(selectedAccount);
-            } else {
-                console.log(chalk.red("Invalid selection. Please try again."));
-                selectAccount(accounts).then(resolve);
-            }
+const changeMoney = (gamePath: string) => {
+  displayHeader("Change Money");
+  const moneyFilePath = path.join(gamePath, "Money.json");
+  rl.question("Enter new Online Balance: ", (onlineBalance) => {
+    rl.question("Enter new Networth: ", (networth) => {
+      rl.question("Enter new Weekly Deposit Sum: ", (weeklyDepositSum) => {
+        fs.readFile(moneyFilePath, "utf8", (err, data) => {
+          if (err) {
+            console.error(chalk.red("Error reading Money.json:"), err);
+            return;
+          }
+          try {
+            const moneyData = JSON.parse(data);
+            moneyData.OnlineBalance = parseFloat(onlineBalance);
+            moneyData.Networth = parseFloat(networth);
+            moneyData.WeeklyDepositSum = parseFloat(weeklyDepositSum);
+            fs.writeFile(
+              moneyFilePath,
+              JSON.stringify(moneyData, null, 2),
+              (err) => {
+                if (err) {
+                  console.error(chalk.red("Error writing Money.json:"), err);
+                  return;
+                }
+                console.log(chalk.green("Money changed successfully!"));
+                askToModifyMore();
+              },
+            );
+          } catch (e) {
+            console.error(chalk.red("Error parsing Money.json:"), e);
+          }
         });
+      });
     });
-}
+  });
+};
 
-async function listSaveGames(accountPath: string): Promise<string[]> {
+const modifyBusinesses = (gamePath: string) => {
+  displayHeader("Modify Businesses");
+  const businessesPath = path.join(gamePath, "Businesses");
+  fs.readdir(businessesPath, (err, files) => {
+    if (err) {
+      console.error(chalk.red("Error reading businesses:"), err);
+      return;
+    }
+    if (files.length === 0) {
+      console.log(chalk.yellow("No businesses found."));
+      askToModifyMore();
+      return;
+    }
+    displayGrid(files);
+    rl.question("Enter the number of the business: ", (answer) => {
+      const businessIndex = parseInt(answer) - 1;
+      if (
+        isNaN(businessIndex) ||
+        businessIndex < 0 ||
+        businessIndex >= files.length
+      ) {
+        console.log(chalk.red("Invalid selection."));
+        modifyBusinesses(gamePath);
+        return;
+      }
+      const businessPath = path.join(
+        businessesPath,
+        files[businessIndex],
+        "Business.json",
+      );
+      rl.question("Do you want to own this business? (yes/no): ", (own) => {
+        fs.readFile(businessPath, "utf8", (err, data) => {
+          if (err) {
+            console.error(chalk.red("Error reading Business.json:"), err);
+            return;
+          }
+          try {
+            const businessData = JSON.parse(data);
+            businessData.isOwned = own.toLowerCase() === "yes";
+            fs.writeFile(
+              businessPath,
+              JSON.stringify(businessData, null, 2),
+              (err) => {
+                if (err) {
+                  console.error(chalk.red("Error writing Business.json:"), err);
+                  return;
+                }
+                console.log(chalk.green("Business modified successfully!"));
+                askToModifyMore();
+              },
+            );
+          } catch (e) {
+            console.error(chalk.red("Error parsing Business.json:"), e);
+          }
+        });
+      });
+    });
+  });
+};
+
+const modifyNPCs = (gamePath: string) => {
+  displayHeader("Modify NPCs");
+  const npcsPath = path.join(gamePath, "NPCs");
+
+  fs.readdir(npcsPath, (err, files) => {
+    if (err) {
+      console.error(chalk.red("Error reading NPCs:"), err);
+      return;
+    }
+    if (files.length === 0) {
+      console.log(chalk.yellow("No NPCs found."));
+      askToModifyMore();
+      return;
+    }
+
+    // Use inquirer for NPC selection with arrow navigation
+    const npcNames = files.map((file, index) => ({
+      name: file,
+      value: index,
+    }));
+
+    inquirer
+      .prompt([
+        {
+          type: "list",
+          name: "npcSelection",
+          message: "Select an NPC:",
+          choices: npcNames.map((npc, i) => ({
+            name: i === 0 ? chalk.yellow(npc.name) : chalk.white(npc.name),
+            value: npc.value,
+          })),
+          pageSize: 10,
+          loop: false,
+        },
+      ])
+      .then((answers) => {
+        const npcIndex = answers.npcSelection;
+        const npcPath = path.join(npcsPath, files[npcIndex]);
+
+        rl.question("Do you want to unlock this NPC? (yes/no): ", (unlock) => {
+          rl.question("Enter unlock type (integer): ", (unlockType) => {
+            rl.question("Enter relationship delta (0-5): ", (relationDelta) => {
+              const relationshipFilePath = path.join(
+                npcPath,
+                "Relationship.json",
+              );
+              fs.readFile(relationshipFilePath, "utf8", (err, data) => {
+                if (err) {
+                  console.error(
+                    chalk.red("Error reading Relationship.json:"),
+                    err,
+                  );
+                  return;
+                }
+                try {
+                  const relationshipData = JSON.parse(data);
+                  relationshipData.Unlocked = unlock.toLowerCase() === "yes";
+                  relationshipData.UnlockType = parseInt(unlockType);
+                  relationshipData.RelationDelta = parseFloat(relationDelta);
+
+                  fs.writeFile(
+                    relationshipFilePath,
+                    JSON.stringify(relationshipData, null, 2),
+                    (err) => {
+                      if (err) {
+                        console.error(
+                          chalk.red("Error writing Relationship.json:"),
+                          err,
+                        );
+                        return;
+                      }
+                      console.log(
+                        chalk.green("NPC relationship modified successfully!"),
+                      );
+                      modifyNPCDebt(npcPath);
+                    },
+                  );
+                } catch (e) {
+                  console.error(
+                    chalk.red("Error parsing Relationship.json:"),
+                    e,
+                  );
+                }
+              });
+            });
+          });
+        });
+      })
+      .catch((err) => {
+        console.error(chalk.red("Error in NPC selection:"), err);
+      });
+  });
+};
+
+const modifyNPCDebt = (npcPath: string) => {
+  displayHeader("Modify NPC Debt");
+  const npcFilePath = path.join(npcPath, "NPC.json");
+  fs.readFile(npcFilePath, "utf8", (err, data) => {
+    if (err) {
+      console.error(chalk.red("Error reading NPC.json:"), err);
+      askToModifyMore();
+      return;
+    }
     try {
-        const accountFolderPath = path.join(accountPath);
-        const files = await fsPromises.readdir(accountFolderPath, { withFileTypes: true });
-
-        const directories = files.filter(file => file.isDirectory() && file.name.startsWith("SaveGame_")).map(file => file.name);
-
-        if (directories.length === 0) {
-            console.log(chalk.red("No save games found for this account."));
-            return [];
-        }
-
-        console.log(chalk.blue("Found these games for the selected account:"));
-        directories.forEach((game, index) => {
-            console.log(`${index + 1}. ${game}`);
+      const npcData = JSON.parse(data);
+      if ("debt" in npcData) {
+        rl.question("Enter new debt value: ", (debt) => {
+          npcData.debt = parseFloat(debt);
+          fs.writeFile(npcFilePath, JSON.stringify(npcData, null, 2), (err) => {
+            if (err) {
+              console.error(chalk.red("Error writing NPC.json:"), err);
+              return;
+            }
+            console.log(chalk.green("NPC debt modified successfully!"));
+            askToModifyMore();
+          });
         });
-
-        return directories;
-    } catch (err) {
-        console.error(chalk.red("Error reading save games:"), err);
-        return [];
+      } else {
+        console.log(chalk.yellow("No debt variable found in NPC.json."));
+        askToModifyMore();
+      }
+    } catch (e) {
+      console.error(chalk.red("Error parsing NPC.json:"), e);
+      askToModifyMore();
     }
-}
+  });
+};
 
-async function selectGame(games: string[]): Promise<string> {
-    return new Promise<string>((resolve) => {
-        rl.question("Enter the number of the SaveGame to select: ", (input) => {
-            const selectedGameIndex = parseInt(input.trim()) - 1;
-            if (selectedGameIndex >= 0 && selectedGameIndex < games.length) {
-                selectedGame = games[selectedGameIndex];
-                resolve(selectedGame);
-            } else {
-                console.log(chalk.red("Invalid selection. Please try again."));
-                selectGame(games).then(resolve);
-            }
-        });
-    });
-}
+const displayGrid = (items: string[]) => {
+  const columns = 3;
+  for (let i = 0; i < items.length; i += columns) {
+    const row = items
+      .slice(i, i + columns)
+      .map((item, index) => `${i + index + 1}. ${item}`)
+      .join("  ");
+    console.log(row);
+  }
+};
 
-async function modifyBusiness(gamePath: string) {
-    const businessPath = path.join(gamePath, "Businesses");
-    const businesses = ["Car Wash", "Laundromat", "Post Office", "Taco Ticklers"];
-    console.clear();
-    console.log(chalk.blue("Select a Business to Modify"));
-
-    businesses.forEach((business, index) => {
-        console.log(`${index + 1}. ${business}`);
-    });
-
-    return new Promise<void>((resolve) => {
-        rl.question("Enter the number to modify the selected business: ", async (input) => {
-            const businessIndex = parseInt(input.trim()) - 1;
-            if (businessIndex >= 0 && businessIndex < businesses.length) {
-                const businessName = businesses[businessIndex];
-                const businessJsonPath = path.join(businessPath, businessName, "Business.json");
-
-                try {
-                    const businessData = JSON.parse(await fsPromises.readFile(businessJsonPath, "utf-8"));
-                    businessData.IsOwned = true;
-                    await fsPromises.writeFile(businessJsonPath, JSON.stringify(businessData, null, 2));
-                    console.log(chalk.green(`Successfully modified ${businessName} to be owned.`));
-                } catch (err) {
-                    console.error(chalk.red("Error modifying business:"), err);
-                }
-                resolve();
-            } else {
-                console.log(chalk.red("Invalid selection. Please try again."));
-                modifyBusiness(gamePath).then(resolve);
-            }
-        });
-    });
-}
-
-async function modifyBalance(gamePath: string) {
-    const moneyJsonPath = path.join(gamePath, "Money.json");
-    console.clear();
-    console.log(chalk.blue("Modify Balance or Networth"));
-
-    return new Promise<void>((resolve) => {
-        rl.question("Enter new Online Balance: ", async (onlineBalance) => {
-            rl.question("Enter new Networth: ", async (networth) => {
-                try {
-                    const moneyData = JSON.parse(await fsPromises.readFile(moneyJsonPath, "utf-8"));
-                    moneyData.OnlineBalance = parseFloat(onlineBalance);
-                    moneyData.Networth = parseFloat(networth);
-                    await fsPromises.writeFile(moneyJsonPath, JSON.stringify(moneyData, null, 2));
-                    console.log(chalk.green("Successfully modified Balance and Networth."));
-                } catch (err) {
-                    console.error(chalk.red("Error modifying balance:"), err);
-                }
-                resolve();
-            });
-        });
-    });
-}
-
-async function modifyWeeklyDepositSum(gamePath: string) {
-    const moneyJsonPath = path.join(gamePath, "Money.json");
-    console.clear();
-    console.log(chalk.blue("Modify Weekly Deposit Sum"));
-
-    return new Promise<void>((resolve) => {
-        rl.question("Set Weekly Deposit Sum to 0 (press Enter to confirm): ", async () => {
-            try {
-                const moneyData = JSON.parse(await fsPromises.readFile(moneyJsonPath, "utf-8"));
-                moneyData.WeeklyDepositSum = 0;
-                await fsPromises.writeFile(moneyJsonPath, JSON.stringify(moneyData, null, 2));
-                console.log(chalk.green("Successfully modified Weekly Deposit Sum to 0."));
-            } catch (err) {
-                console.error(chalk.red("Error modifying Weekly Deposit Sum:"), err);
-            }
-            resolve();
-        });
-    });
-}
-
-async function modifyInternalLawIntensity(gamePath: string) {
-    const lawJsonPath = path.join(gamePath, "Law.json");
-    console.clear();
-    console.log(chalk.blue("Modify Internal Law Intensity"));
-
-    return new Promise<void>((resolve) => {
-        rl.question("Enter new Internal Law Intensity (e.g., 0.25): ", async (intensity) => {
-            try {
-                const lawData = JSON.parse(await fsPromises.readFile(lawJsonPath, "utf-8"));
-                lawData.InternalLawIntensity = parseFloat(intensity);
-                await fsPromises.writeFile(lawJsonPath, JSON.stringify(lawData, null, 2));
-                console.log(chalk.green("Successfully modified Internal Law Intensity."));
-            } catch (err) {
-                console.error(chalk.red("Error modifying internal law intensity:"), err);
-            }
-            resolve();
-        });
-    });
-}
-
-async function handleMenuSelection(gamePath: string) {
-    let exitMenu = false;
-    while (!exitMenu) {
-        console.clear();
-        console.log(chalk.blue("Select an option:"));
-        console.log("1. Modify Business");
-        console.log("2. Modify Balance");
-        console.log("3. Modify Weekly Deposit Sum");
-        console.log("4. Modify Internal Law Intensity");
-        console.log("5. Exit");
-
-        await new Promise<void>((resolve) => {
-            rl.question("Enter your option number: ", async (option) => {
-                switch (option.trim()) {
-                    case "1":
-                        await modifyBusiness(gamePath);
-                        break;
-                    case "2":
-                        await modifyBalance(gamePath);
-                        break;
-                    case "3":
-                        await modifyWeeklyDepositSum(gamePath);
-                        break;
-                    case "4":
-                        await modifyInternalLawIntensity(gamePath);
-                        break;
-                    case "5":
-                        console.log(chalk.green("Exiting..."));
-                        exitMenu = true;
-                        break;
-                    default:
-                        console.log(chalk.red("Invalid selection. Please try again."));
-                        break;
-                }
-                resolve();
-            });
-        });
+const askToModifyMore = () => {
+  rl.question("Do you want to modify more? (yes/no): ", (answer) => {
+    if (answer.toLowerCase() === "yes") {
+      listAccounts();
+    } else {
+      console.log(chalk.green("Goodbye!"));
+      rl.close();
+      process.exit(0);
     }
-}
+  });
+};
 
-async function main() {
-    await printStart();
-
-    await console.log(chalk.magenta("To get the path do this: \n1. Press the Windows key and R \n2. Enter %AppData%Low (Default Steam Installer Path, if you have installed it in another folder/drive, please use the correct path) \n3. Open the TVGS Folder \n4. Open the Schedule 1 Folder \n5. Right-Click on the bar on the top on Schedule One and select \"Copy Adress\" \n6. Paste it below using CTRL + V \n7. Press ENTER"))
-    rl.question("Enter your Schedule 1 path (e.g., C:/Users/yourname/AppData/LocalLow/TVGS/Schedule I): ", async (inputPath) => {
-        const sanitizedPath = inputPath.trim().replace(/\\/g, "/");
-
-        try {
-            const accounts = await listAccounts(sanitizedPath);
-            const selectedAccount = await selectAccount(accounts);
-            const accountPath = path.join(sanitizedPath, "Saves", selectedAccount);
-
-            const games = await listSaveGames(accountPath);
-            if (games.length === 0) {
-                rl.close();
-                return;
-            }
-            const selectedGame = await selectGame(games);
-            const gamePath = path.join(accountPath, selectedGame);
-
-            await handleMenuSelection(gamePath);
-            rl.close();
-        } catch (err) {
-            console.error(chalk.red("Error:", err));
-            rl.close();
-        }
-    });
-}
-
-main();
+listAccounts();
